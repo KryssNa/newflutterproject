@@ -1,0 +1,365 @@
+import 'package:chahewoneu/constant/my_constraints.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_flushbar/flutter_flushbar.dart';
+import 'package:intl/intl.dart';
+
+import '../../model/bus_seat.dart';
+import '../../models/Booking_Model.dart';
+import '../../repositories/BusRepo.dart';
+
+bool isSelected = false;
+bool isBooked = false;
+
+class Bus extends StatefulWidget {
+  Bus({Key? key, this.data}) : super(key: key);
+  BookingModel? data;
+
+  @override
+  State<Bus> createState() => _BusState();
+}
+
+class _BusState extends State<Bus> {
+  String selectedDate = "";
+  // var isBooked
+  var countSeatLeft = 2 * 13;
+  var countSeatRight = 2 * 13;
+
+  Map<int, String> leftSelectedSeat = <int, String>{};
+  Map<int, String> rightSelectedSeat = <int, String>{};
+
+  Map<int, String> leftBookedSeat = <int, String>{};
+  Map<int, String> rightBookedSeat = <int, String>{};
+
+  @override
+  void initState() {
+    initSeatValueToMap(leftSelectedSeat);
+    initSeatValueToMap(rightSelectedSeat);
+
+    super.initState();
+  }
+
+  void showToast(BuildContext context, Color color, String message) {
+    Flushbar(
+      duration: const Duration(seconds: 3),
+      backgroundColor: color,
+      messageText: Text(
+        message,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 16.0,
+        ),
+      ),
+    ).show(context);
+  }
+
+  initSeatValueToMap(Map<int, String> selectedSeatMap) {
+    print("The reserved seat List is: --> $selectedSeatMap");
+    if (selectedSeatMap.isEmpty) {
+      selectedSeatMap.forEach((int key, String value) {
+        setState(() {
+          if (value == null) {
+            value = txtAvailableString;
+          }
+          selectedSeatMap[key] = value;
+          print("The reserved seat List is: --> $selectedSeatMap");
+        });
+      });
+    }
+  }
+
+  void setSelectedToBooked() {
+    leftBookedSeat = leftSelectedSeat;
+    rightBookedSeat = rightSelectedSeat;
+    Map<String, List<int>> alignmentMap = {};
+    List<int> leftSelectedNumList = [];
+    List<int> rightSelectedNumList = [];
+
+    leftBookedSeat.forEach((int key, String value) {
+      setState(() {
+        if (value == txtSelectedString) {
+          value = txtBookedString;
+          leftSelectedSeat[key] = txtBookedString;
+        }
+        leftSelectedNumList.add(key);
+        alignmentMap[txtLeft] = leftSelectedNumList;
+        print("The left booked of index:$key --> $value");
+      });
+    });
+
+    rightBookedSeat.forEach((int key, String value) {
+      setState(() {
+        if (value == txtSelectedString) {
+          value = txtBookedString;
+          rightSelectedSeat[key] = txtBookedString;
+        }
+        rightSelectedNumList.add(key);
+        alignmentMap[txtRight] = rightSelectedNumList;
+        print("The right booked of index:$key --> $value");
+      });
+    });
+
+    if (selectedDate == "") {
+      showToast(context, Colors.red, "Please select date");
+    } else if ((leftSelectedNumList.isEmpty && rightSelectedNumList.isEmpty)) {
+      showToast(context, Colors.red, "Please select seat");
+    } else {
+      BusSeat busSeat = BusSeat(
+          selectedDate,
+          "19",
+          // auth.loggedInUser!.userId,
+          alignmentMap,
+          widget.data!.id.toString());
+      BusRepo().sendBookingDetailsToFirebase(busSeat);
+      showToast(context, Colors.green, "Booked Successfully");
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: Container(
+        width: MediaQuery.of(context).size.width,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Container(
+              margin: const EdgeInsets.only(top: 15),
+              child: const Text("Bus Seat Booking",
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.black,
+                    height: 2.5,
+                  )),
+            ),
+            const SizedBox(
+              height: 22,
+            ),
+            Container(
+              alignment: Alignment.topLeft,
+              padding: const EdgeInsets.only(left: 22),
+              child: const Text(
+                "Arrival Date ",
+                style: TextStyle(
+                  fontSize: 18,
+                  fontFamily: "Times New Roman",
+                  color: Colors.black,
+                  fontStyle: FontStyle.normal,
+                ),
+              ),
+            ),
+            const SizedBox(
+              height: 10,
+            ),
+            Row(
+              children: [
+                Container(
+                  alignment: Alignment.topLeft,
+                  padding: const EdgeInsets.only(left: 20, top: 10),
+                  child: MaterialButton(
+                    onPressed: () async {
+                      DateTime? pickedDate = await showDatePicker(
+                          context: context,
+                          initialDate: DateTime.now(),
+                          firstDate: DateTime(1950),
+                          //DateTime.now() - not to allow to choose before today.
+                          lastDate: DateTime(2100));
+                      if (pickedDate != null) {
+                        print(
+                            pickedDate); //pickedDate output format => 2021-03-10 00:00:00.000
+                        String formattedDate =
+                            DateFormat('yyyy-MM-dd').format(pickedDate);
+                        setState(() {
+                          //set output date to TextField value.
+                          selectedDate = formattedDate;
+                        });
+                      } else {}
+                    },
+                    child: const Text(
+                      "Choose Date",
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontFamily: "Times New Roman",
+                        color: Colors.white,
+                      ),
+                    ),
+                    color: Colors.deepPurple,
+                  ),
+                ),
+                const SizedBox(width: 20.0),
+                Text(selectedDate,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                        fontStyle: FontStyle.italic,
+                        letterSpacing: 2)),
+              ],
+            ),
+            const SizedBox(
+              height: 20,
+            ),
+            const SizedBox(height: 20),
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 20),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Container(
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 20,
+                            height: 20,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(5),
+                              color: const Color.fromARGB(255, 196, 44, 34),
+                            ),
+                          ),
+                          Container(
+                            margin: const EdgeInsets.only(left: 10),
+                            child: const Text(
+                              "Booked",
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: Container(
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 20,
+                            height: 20,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(5),
+                              color: Colors.purple,
+                            ),
+                          ),
+                          Container(
+                            margin: const EdgeInsets.only(left: 10),
+                            child: const Text("Selected"),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: Container(
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 20,
+                            height: 20,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(5),
+                              border: Border.all(
+                                width: 1,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          ),
+                          Container(
+                            margin: const EdgeInsets.only(left: 10),
+                            child: const Text("Available"),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                ],
+              ),
+            ),
+            const SizedBox(
+              height: 15,
+            ),
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 10),
+              // height: 100,
+              width: MediaQuery.of(context).size.width,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(width: 20),
+                  widgetSeat1(leftSelectedSeat, txtLeft),
+                  const SizedBox(
+                    width: 130,
+                  ),
+                  widgetSeat1(rightSelectedSeat, txtRight),
+                ],
+              ),
+            ),
+            const SizedBox(
+              height: 20,
+            ),
+            ElevatedButton(
+              onPressed: () {
+                setSelectedToBooked();
+              },
+              child: const Text("Book"),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget widgetSeat1(Map<int, String> reservedSeat, String alignment) {
+    return Container(
+      width: MediaQuery.of(context).size.width / 3.93,
+      child: GridView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+
+          // childAspectRatio: 1.7,
+        ),
+        itemCount: 10,
+        itemBuilder: (BuildContext context, int index) {
+          return Visibility(
+            visible: true,
+            child: GestureDetector(
+              onTap: () {
+                setState(() {
+                  if (reservedSeat[index] == null) {
+                    reservedSeat[index] = txtAvailableString;
+                  }
+                  if (reservedSeat[index] == txtAvailableString) {
+                    reservedSeat[index] = txtSelectedString;
+                    print("I Clicked on: $index ==> ${reservedSeat[index]}");
+                  } else if (reservedSeat[index] == txtSelectedString) {
+                    reservedSeat[index] = txtAvailableString;
+                    print("II Clicked on: $index ==> ${reservedSeat[index]}");
+                  } else {
+                    reservedSeat[index] = txtBookedString;
+                    print(" III Clicked on: $index ==> ${reservedSeat[index]}");
+                  }
+                });
+              },
+              child: Container(
+                margin: const EdgeInsets.all(5),
+                width: 20,
+                height: 20,
+                decoration: BoxDecoration(
+                  color: reservedSeat[index] == txtBookedString
+                      ? Colors.red
+                      : reservedSeat[index] == txtSelectedString
+                          ? Colors.purple
+                          : Colors.transparent,
+                  border: Border.all(
+                    color: Colors.grey,
+                  ),
+                  borderRadius: BorderRadius.circular(5),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
